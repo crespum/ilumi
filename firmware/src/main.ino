@@ -26,7 +26,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <PubSubClient.h>
-#include <PCA9685.h>
+#include <Adafruit_PWMServoDriver.h>
 #include <Wire.h>
 
 #define SCL_PIN       2
@@ -50,14 +50,14 @@ extern "C" {
   #include "user_interface.h"
 }
 WiFiClient wifiClient;
+TwoWire i2c = TwoWire();
 PubSubClient mqttClient(wifiClient, MQTT_SERVER, MQTT_PORT);
-PCA9685 leds = PCA9685(0x0, PCA9685_MODE_LED_DIRECT, 800.0);
+Adafruit_PWMServoDriver leds = Adafruit_PWMServoDriver(&i2c);
 
 void onMQTTMsg(const MQTT::Publish& pub) {
   if (pub.payload_string() == "brightness/status") {
   }
   else if (pub.payload_string() == "brightness/set") {
-    leds.getPin(PCA9685_LED0).fullOnAndWrite();
   }
   else if (pub.payload_string() == "reset") {
     requestRestart = true;
@@ -70,8 +70,8 @@ void configureOTA() {
 
   ArduinoOTA.onStart([]() {
     OTAupdate = true;
-    blinkLED(PCA9685_LED0, 400, 2);
-    leds.getPin(PCA9685_LED0).fullOnAndWrite();
+    loadingLEDs();
+    leds.setPWM(0, 4096, 0);
     Serial.println("OTA Update Initiated . . .");
   });
 
@@ -81,14 +81,14 @@ void configureOTA() {
   });
 
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    leds.getPin(PCA9685_LED0).fullOffAndWrite();
+    leds.setPWM(0, 0, 4096);
     delay(5);
-    leds.getPin(PCA9685_LED0).fullOnAndWrite();
+    leds.setPWM(0, 4096, 0);
     Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
   });
 
   ArduinoOTA.onError([](ota_error_t error) {
-    blinkLED(PCA9685_LED0, 40, 2);
+    loadingLEDs();
     OTAupdate = false;
     Serial.printf("OTA Error [%u] ", error);
     if (error == OTA_AUTH_ERROR) Serial.println(". . . . . . . . . . . . . . . Auth Failed");
@@ -107,10 +107,10 @@ void setup() {
   // Setup LEDs ring driver
   pinMode(PCA_OE_PIN, OUTPUT);
   digitalWrite(PCA_OE_PIN, LOW);
-  Wire.begin(SDA_PIN, SCL_PIN);
-  leds.setup();
-
-  leds.getPin(PCA9685_LED0).fullOnAndWrite();
+  i2c.begin(SDA_PIN, SCL_PIN);
+  leds.begin();
+  leds.setPWMFreq(1000);  // Set to whatever you like, we don't use it in this demo!
+  loadingLEDs();
 
   sprintf(ESP_CHIP_ID, "%06X", ESP.getChipId());
   sprintf(UID, HOST_PREFIX, ESP_CHIP_ID);
@@ -147,7 +147,7 @@ void setup() {
       Serial.println("\n----------------------------  Logs  ----------------------------");
       Serial.println();
       mqttClient.subscribe(MQTT_TOPIC);
-      blinkLED(PCA9685_LED0, 40, 8);
+      loadingLEDs();
     } else {
       Serial.println(" FAILED!");
       Serial.println("\n----------------------------------------------------------------");
@@ -169,12 +169,11 @@ void loop() {
   }
 }
 
-void blinkLED(int led_num, int duration, int n) {
-  for(int i=0; i<n; i++)  {
-    leds.getPin(led_num).fullOnAndWrite();
-    delay(duration);
-    leds.getPin(led_num).fullOffAndWrite();
-    delay(duration);
+void loadingLEDs() {
+  for (uint8_t pin=0; pin<16; pin++) {
+    leds.setPWM(pin, 4096, 0);       // turns pin fully on
+    delay(50);
+    leds.setPWM(pin, 0, 4096);       // turns pin fully off
   }
 }
 
@@ -194,7 +193,7 @@ void checkConnection() {
 
 void checkStatus() {
   if (requestRestart) {
-    blinkLED(PCA9685_LED0, 400, 4);
+    loadingLEDs();
     ESP.restart();
   }
 }
