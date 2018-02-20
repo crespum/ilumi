@@ -229,7 +229,16 @@ void checkStatus() {
         mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/status", "on").set_retain().set_qos(QOS));
       }
 
-      Serial.println("Ilumi . . . . . . . . . . . . . . . . . . ON");
+      Serial.println("Ilumi . . . . . . . . . . . . . . . . . . ON -> ");
+
+      String ledsOnChar = String((int) ledsOn/16.0*255);
+      if (kRetain == 0) {
+        mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/brightness", ledsOnChar).set_qos(QOS));
+      } else {
+        mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/brightness", ledsOnChar).set_retain().set_qos(QOS));
+      }
+
+      Serial.println(ledsOnChar);
     } else {
       if (kRetain == 0) {
         mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/status", "off").set_qos(QOS));
