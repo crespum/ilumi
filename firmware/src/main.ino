@@ -70,7 +70,7 @@ void configureOTA() {
 
   ArduinoOTA.onStart([]() {
     OTAupdate = true;
-    loadingLEDs();
+    loadingPatternRing();
     leds.setPWM(0, 4096, 0);
     Serial.println("OTA Update Initiated . . .");
   });
@@ -88,7 +88,7 @@ void configureOTA() {
   });
 
   ArduinoOTA.onError([](ota_error_t error) {
-    loadingLEDs();
+    loadingPatternRing();
     OTAupdate = false;
     Serial.printf("OTA Error [%u] ", error);
     if (error == OTA_AUTH_ERROR) Serial.println(". . . . . . . . . . . . . . . Auth Failed");
@@ -110,7 +110,7 @@ void setup() {
   i2c.begin(SDA_PIN, SCL_PIN);
   leds.begin();
   leds.setPWMFreq(1000);  // Set to whatever you like, we don't use it in this demo!
-  loadingLEDs();
+  turnOffRing();
 
   sprintf(ESP_CHIP_ID, "%06X", ESP.getChipId());
   sprintf(UID, HOST_PREFIX, ESP_CHIP_ID);
@@ -147,7 +147,7 @@ void setup() {
       Serial.println("\n----------------------------  Logs  ----------------------------");
       Serial.println();
       mqttClient.subscribe(MQTT_TOPIC);
-      loadingLEDs();
+      loadingPatternRing();
     } else {
       Serial.println(" FAILED!");
       Serial.println("\n----------------------------------------------------------------");
@@ -169,11 +169,16 @@ void loop() {
   }
 }
 
-void loadingLEDs() {
-  for (uint8_t pin=0; pin<16; pin++) {
-    leds.setPWM(pin, 4096, 0);       // turns pin fully on
+void turnOffRing() {
+  for (uint8_t led=0; led<16; led++)
+    leds.setPWM(led, 4096, 0); // turns LED fully OFF
+}
+
+void loadingPatternRing() {
+  for (uint8_t led=0; led<16; led++) {
+    leds.setPWM(led, 0, 4096); // turns LED fully ON
     delay(50);
-    leds.setPWM(pin, 0, 4096);       // turns pin fully off
+    leds.setPWM(led, 4096, 0); // turns LED fully OFF
   }
 }
 
@@ -193,7 +198,7 @@ void checkConnection() {
 
 void checkStatus() {
   if (requestRestart) {
-    loadingLEDs();
+    loadingPatternRing();
     ESP.restart();
   }
 }
