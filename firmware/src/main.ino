@@ -40,6 +40,8 @@
 bool OTAupdate = false;
 bool sendStatus = false;
 bool requestRestart = false;
+bool ringStatusOn = false;
+int ledsOn = 0;
 char ESP_CHIP_ID[8];
 char UID[16];
 int lastRelayState;
@@ -54,12 +56,47 @@ TwoWire i2c = TwoWire();
 PubSubClient mqttClient(wifiClient, MQTT_SERVER, MQTT_PORT);
 Adafruit_PWMServoDriver leds = Adafruit_PWMServoDriver(&i2c);
 
+void turnOffRing() {
+  for (uint8_t led=0; led<16; led++)
+    leds.setPWM(led, 4096, 0); // turns LED fully OFF
+}
+
+void turnOnRing() {
+  int led;
+  for (led=0 ; led<ledsOn ; led++)
+    leds.setPWM(led, 0, 4096); // turns LED fully ON
+  for (led ; led<16 ; led++)
+    leds.setPWM(led, 4096, 0); // turns LED fully OFF
+}
+
+void loadingPatternRing() {
+  for (uint8_t led=0; led<16; led++) {
+    leds.setPWM(led, 0, 4096); // turns LED fully ON
+    delay(50);
+    leds.setPWM(led, 4096, 0); // turns LED fully OFF
+  }
+}
+
 void onMQTTMsg(const MQTT::Publish& pub) {
-  if (pub.payload_string() == "brightness/status") {
+  Serial.println(pub.topic());
+  Serial.println(pub.payload_string());
+  if (pub.topic().endsWith("set/switch")) {
+    if (pub.payload_string() == "on") {
+      ringStatusOn = true;
+      turnOnRing();
+    } else if (pub.payload_string() == "off") {
+      ringStatusOn = false;
+      turnOffRing();
+    }
   }
-  else if (pub.payload_string() == "brightness/set") {
+  else if (pub.topic().endsWith("set/brightness")) {
+    int brightness = pub.payload_string().toInt();
+    ledsOn = 16.0/255*brightness;
+    if (ledsOn > 0) ringStatusOn = true;
+    else ringStatusOn = false;
+    turnOnRing();
   }
-  else if (pub.payload_string() == "reset") {
+  else if (pub.topic() == "reset") {
     requestRestart = true;
   }
   sendStatus = true;
@@ -146,7 +183,7 @@ void setup() {
       Serial.println(" DONE");
       Serial.println("\n----------------------------  Logs  ----------------------------");
       Serial.println();
-      mqttClient.subscribe(MQTT_TOPIC);
+      mqttClient.subscribe(MQTT_TOPIC"/set/#");
       loadingPatternRing();
     } else {
       Serial.println(" FAILED!");
@@ -169,19 +206,6 @@ void loop() {
   }
 }
 
-void turnOffRing() {
-  for (uint8_t led=0; led<16; led++)
-    leds.setPWM(led, 4096, 0); // turns LED fully OFF
-}
-
-void loadingPatternRing() {
-  for (uint8_t led=0; led<16; led++) {
-    leds.setPWM(led, 0, 4096); // turns LED fully ON
-    delay(50);
-    leds.setPWM(led, 4096, 0); // turns LED fully OFF
-  }
-}
-
 void checkConnection() {
   if (WiFi.status() == WL_CONNECTED)  {
     if (mqttClient.connected()) {
@@ -197,6 +221,28 @@ void checkConnection() {
 }
 
 void checkStatus() {
+  if (sendStatus) {
+    if (ringStatusOn) {
+      if (kRetain == 0) {
+        mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/status", "on").set_qos(QOS));
+      } else {
+        mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/status", "on").set_retain().set_qos(QOS));
+      }
+
+      Serial.println("Ilumi . . . . . . . . . . . . . . . . . . ON");
+    } else {
+      if (kRetain == 0) {
+        mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/status", "off").set_qos(QOS));
+      } else {
+        mqttClient.publish(MQTT::Publish(MQTT_TOPIC"/status", "off").set_retain().set_qos(QOS));
+      }
+
+      Serial.println("Ilumi . . . . . . . . . . . . . . . . . . OFF");
+    }
+
+    sendStatus = false;
+  }
+
   if (requestRestart) {
     loadingPatternRing();
     ESP.restart();
