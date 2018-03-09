@@ -15,9 +15,9 @@ int QOS = 0;                                                  // QOS level for a
 
 #define MQTT_SERVER      "192.168.0.100"                      // Your mqtt server ip address
 #define MQTT_PORT        1883                                 // Your mqtt port
-#define MQTT_TOPIC       "home/ring/living_room/1/#"            // Base mqtt topic
 #define MQTT_USER        "secret"                          // mqtt username
 #define MQTT_PASS        "secret"                          // mqtt password
+#define MQTT_TOPIC       "home/ring/living_room/1"            // Base mqtt topic
 
 #define WIFI_SSID        "secret"                           // Your WiFi ssid
 #define WIFI_PASS        "secret"                      // Your WiFi password
