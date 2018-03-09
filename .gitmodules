@@ -1,0 +1,6 @@
+[submodule "firmware/lib/pubsubclient"]
+	path = firmware/lib/pubsubclient
+	url = git@github.com:Imroy/pubsubclient.git
+[submodule "firmware/lib/Adafruit-PWM-Servo-Driver-Library"]
+	path = firmware/lib/Adafruit-PWM-Servo-Driver-Library
+	url = git@github.com:adafruit/Adafruit-PWM-Servo-Driver-Library.git
